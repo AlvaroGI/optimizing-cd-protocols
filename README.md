@@ -50,7 +50,7 @@ In the Single Random Swap (SRS) protocol, in each time slot:
  - `run_cd.py`: runs many realizations of the simulation for a specific set of parameters.
 
 ### Files that generate the results shown in the paper:
-These files require some data to be generated in advance. The data can be generated locally or downloaded from our data repository (DOI still not available). If downloaded from the data repository, the data files must be placed in `\data-srs\avg\tree\`.
+These files require some data to be generated in advance. The data can be generated locally or downloaded from our data repository (DOI: 10.4121/75ccbe86-76dd-4188-8c34-f6e012b1373a). If downloaded from the data repository, the data files must be placed in `\data-srs\avg\tree\`.
 
  - `MANUSCRIPT-noswaps.ipynb`: analysis of the performance metrics in the absence of swaps (analytical results). The file produces Figures 4, 10, and 11 from the paper.
  - `MANUSCRIPT-srs-tree.ipynb`: analysis of the performance of the SRS protocol in a (2,3)-tree. The file produces Figures 5, 7, 8, and 13 from the paper.
