@@ -1,4 +1,4 @@
-# Optimizing-CD-protocols
+# Optimizing CD protocols
 
 Optimization of the parameters of a protocol for continuous delivery (CD) of entanglement in a quantum network.
 
