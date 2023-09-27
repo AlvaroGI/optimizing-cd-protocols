@@ -5,7 +5,7 @@ with open('requirements.txt') as f:
 
 setup(
     include_package_data=True,
-    name='optimizingcd',  
+    name='main_cd',  
     version='0.0.1',   
     description='Optimization of the parameters of a protocol for continuous delivery (CD) of entanglement in a quantum network.',
     author='Álvaro G. Iñesta',
