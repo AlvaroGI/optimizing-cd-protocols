@@ -218,9 +218,6 @@ def create_qubit_registers(A, r):
             if A[i,j] == 1:
                 S[i][j] = [None]*r
                 S[j][i] = [None]*r
-    #print(getsizeof(S))
-    #S = pd.arrays.SparseArray(S, fill_value=0) # ISSUE: could use sparse here
-    #print(getsizeof(S))
     return S
 
 def generate_all_links(S, p):
@@ -1252,23 +1249,31 @@ def plot_pareto_singleprotocol_2users(users, varying_array, varying_param, proto
 
 
     # Plot data
-    ax.errorbar(data_x, data_y,
-                xerr=data_x_std,
-                yerr=data_y_std,
-                color=color, alpha=0.5,
-                marker='o', markersize=2,
-                linewidth=1, elinewidth=1, 
-                capsize=3, capthick=1)
+    plt.plot(data_x, data_y, linewidth=1, color=color, alpha=0.5)
+    plt.scatter(data_x, data_y, color=color, marker='o', s=4)
+    print('Max std error (x): %.5f'%max(data_x_std))
+    print('Max std error (y): %.5f'%max(data_y_std))
+    # ax.errorbar(data_x, data_y,
+    #             xerr=data_x_std,
+    #             yerr=data_y_std,
+    #             color=color, alpha=0.5,
+    #             marker='o', markersize=2,
+    #             linewidth=1, elinewidth=1, 
+    #             capsize=3, capthick=1)
 
     # Plot Pareto frontier
-    ax.errorbar([data_x[frontier] for frontier in pareto_frontier],
+    # ax.errorbar([data_x[frontier] for frontier in pareto_frontier],
+    #             [data_y[frontier] for frontier in pareto_frontier],
+    #             xerr=[data_x_std[frontier] for frontier in pareto_frontier],
+    #             yerr=[data_y_std[frontier] for frontier in pareto_frontier],
+    #             color='tab:blue',
+    #             marker='x', markersize=4,
+    #             linewidth=0, elinewidth=1, 
+    #             capsize=3, capthick=1)
+    ax.scatter([data_x[frontier] for frontier in pareto_frontier],
                 [data_y[frontier] for frontier in pareto_frontier],
-                xerr=[data_x_std[frontier] for frontier in pareto_frontier],
-                yerr=[data_y_std[frontier] for frontier in pareto_frontier],
                 color='tab:blue',
-                marker='o', markersize=2,
-                linewidth=0, elinewidth=1, 
-                capsize=3, capthick=1)
+                marker='x', s=20, zorder=10)
 
 
     x_diff = max(data_x)-min(data_x)
@@ -1416,6 +1421,8 @@ def plot_avgs_vs_param(users, varying_array, varying_param, protocol, data_type,
         else:
             colors = [cmap(i/len(users)) for i in range(len(users))]
 
+    markers = ['o','v','x','s','d']
+
     # Virtual degree
     if True:
         fig, ax = plt.subplots(figsize=(x_cm/2.54,y_cm/2.54))
@@ -1424,16 +1431,19 @@ def plot_avgs_vs_param(users, varying_array, varying_param, protocol, data_type,
                 label = 'Node %d'%node
             elif legend=='levels':
                 label = 'Level %d node'%node
-            #plt.plot(varying_array, avg_vdegs_sim[node],
-            #         color=colors[idx],
-            #         label=label)
-            ax.errorbar(varying_array, avg_vdegs_sim[node],
-                yerr=2*np.array(std_vdegs_sim[node])/np.sqrt(N_samples),
-                linestyle='-', color=colors[idx],
-                marker='o', markersize=2,
-                linewidth=1, elinewidth=1,
-                capsize=3, capthick=1,
-                label=label)
+            plt.plot(varying_array, avg_vdegs_sim[node],
+                    color=colors[idx],
+                    marker=markers[idx], markersize=4,
+                    label=label)
+            print('Max std error (vdegs): %.5f'%max(2
+                    *np.array(std_vdegs_sim[node])/np.sqrt(N_samples)))
+            # ax.errorbar(varying_array, avg_vdegs_sim[node],
+            #     yerr=2*np.array(std_vdegs_sim[node])/np.sqrt(N_samples),
+            #     linestyle='-', color=colors[idx],
+            #     marker=markers[idx], markersize=3,
+            #     linewidth=1, elinewidth=1,
+            #     capsize=3, capthick=1,
+            #     label=label)
 
         if xlimits == None:
             plt.xlim(varying_array[0], varying_array[-1])
@@ -1475,13 +1485,19 @@ def plot_avgs_vs_param(users, varying_array, varying_param, protocol, data_type,
             elif legend=='levels':
                 label = 'Level %d node'%node
             try:
-                ax.errorbar(varying_array, avg_vneighs_sim[node],
-                    yerr=2*np.array(std_vneighs_sim[node])/np.sqrt(N_samples),
-                    linestyle='-', color=colors[idx],
-                    marker='o', markersize=2,
-                    linewidth=1, elinewidth=1,
-                    capsize=3, capthick=1,
-                    label=label)
+                plt.plot(varying_array, avg_vneighs_sim[node],
+                        color=colors[idx],
+                        marker=markers[idx], markersize=4,
+                        label=label)
+                print('Max std error (vneighs): %.5f'%max(2
+                        *np.array(std_vneighs_sim[node])/np.sqrt(N_samples)))
+                # ax.errorbar(varying_array, avg_vneighs_sim[node],
+                #     yerr=2*np.array(std_vneighs_sim[node])/np.sqrt(N_samples),
+                #     linestyle='-', color=colors[idx],
+                #     marker=markers[idx], markersize=3,
+                #     linewidth=1, elinewidth=1,
+                #     capsize=3, capthick=1,
+                #     label=label)
             except:
                 print(std_vneighs_sim[node])
             # Plot line at optimal value

@@ -7,7 +7,11 @@ The code in this repository was used to generate the results shown in our paper 
 ---
 ## Basic usage
 
-See `TUTORIAL.ipynb`. For further details on the physical model, see below and also our [draft](https://arxiv.org/abs/2307.01406).
+To install our code as a Python package, run `pip install git+https://github.com/AlvaroGI/optimizing-cd-protocols.git@package`.
+
+For a tutorial, see `TUTORIAL.ipynb`. 
+
+For further details on the physical model, see below and also our [paper](https://arxiv.org/abs/2307.01406).
 
 ---
 ## Network assumptions
