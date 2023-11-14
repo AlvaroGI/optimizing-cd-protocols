@@ -1,5 +1,5 @@
 '''Run CD protocol simulation and save data.
-   Alvaro Gomez Inesta. TU Delft, 2022.'''
+   Alvaro G. Inesta. TU Delft, 2022.'''
 
 import numpy as np
 import numpy.matlib as npm

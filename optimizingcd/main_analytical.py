@@ -1,4 +1,4 @@
-'''Main functions to analyze CD protocols.
+'''Main analytical functions to analyze CD protocols.
    Alvaro Gomez Inesta. TU Delft, 2022.'''
 
 import numpy as np
