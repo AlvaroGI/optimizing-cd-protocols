@@ -1,6 +1,5 @@
-'''Main functions to analyze CD protocols
-   (this is a shortened version of main_cd_all.py).
-   Alvaro Gomez Inesta. TU Delft, 2022.'''
+'''Main functions to analyze CD protocols.
+   Alvaro G. Inesta. TU Delft, 2022.'''
 
 import numpy as np
 import numpy.matlib as npm
