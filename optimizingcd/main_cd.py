@@ -21,6 +21,7 @@ import os
 import copy
 from queue import Queue
 import matplotlib.ticker as ticker
+import networkx as nx
 
 plt.rcParams['font.family'] = 'Arial'
 #rc('text', usetex=True)
@@ -453,18 +454,96 @@ def step_protocol_srs(S, p_gen, q_swap, p_swap, p_cons, cutoff, max_links_swappe
 
     return S
 
+def step_protocol_ndsrs(S, p_gen, q_swap_vec, p_swap, p_cons, cutoff, max_links_swapped):
+    '''Node-Dependent Single Random Swap (NDSRS) protocol.'''
+    n = len(S)
+
+    if not len(q_swap_vec)==n:
+        raise ValueError('Parameter q not specified for every node (or for too many nodes)')
+
+    S = advance_time(S)
+
+    S = cutoffs(S, cutoff)
+    
+    # Generate links on every available qubit (1 per physical channel)
+    S = generate_all_links(S, p_gen)
+
+    # Perform swaps
+    if (np.array(q_swap_vec)>0).any():
+        node_list = np.random.permutation(np.arange(n)) # This does not need to be a random permutation
+
+        # Each node chooses a random pair
+        pairs_list = [None for _ in range(n)]
+        for i in node_list:
+            if q_swap_vec[i]==0:
+                continue
+            # Find all occupied qubits in node i
+            occupied_qubits_i = []
+            for z in range(n):
+                # If qubit address (i,z,-) exists
+                if not S[i][z]==0:
+                    for m, qubit in enumerate(S[i][z]):
+                        # If qubit is occupied:
+                        if not qubit is None:
+                            occupied_qubits_i += [(z,m)]
+            if len(occupied_qubits_i) > 1:
+                # Pick occupied qubit connected to node j
+                random.shuffle(occupied_qubits_i)
+                qubit_1 = occupied_qubits_i[0]
+                j = S[i][qubit_1[0]][qubit_1[1]][2][0]
+                # Pick occupied qubit connected to node k!=j, with A_jk=0
+                for qubit_2 in occupied_qubits_i:
+                    k = S[i][qubit_2[0]][qubit_2[1]][2][0]
+                    if ((not k == j) and
+                        (S[j][k] == 0)): # A_jk=0 is equivalent to S_jk=0
+                        pairs_list[i] = [qubit_1, qubit_2]
+                        break
+
+        # Each node attempts the swap
+        for i in node_list:
+            if q_swap_vec[i]==0:
+                continue
+            else:
+                q_swap = q_swap_vec[i]
+            # Perform a single swap
+            if not pairs_list[i] is None:
+                if np.random.rand()<q_swap:
+                    S = swap(S, [i,pairs_list[i][0][0],pairs_list[i][0][1]],
+                                [i,pairs_list[i][1][0],pairs_list[i][1][1]],
+                                ps=p_swap)
+
+    if p_swap<1:
+        S = cutoffs(S, cutoff+10) # We need to remove links from failed swaps,
+                                # which are links with infinite age. We need
+                                # to give them this age as a placeholder so
+                                # that all nodes can perform swaps at the 
+                                # same time although in our simulation they
+                                # do this sequentally
+
+    # Remove links that are too long
+    if (np.array(q_swap_vec)>0).any():
+        S = remove_long_links(S, max_links_swapped)
+
+    # Consume links
+    S = consume_fixed_rate(S, p_cons)
+
+    return S
+
 
 #---------------------------------------------------------------------------
 #----------------------------- SIMULATIONS ---------------------------------
 #---------------------------------------------------------------------------
 def simulation_cd(protocol, A, p_gen, q_swap, p_swap, p_cons, cutoff, M, qbits_per_channel, N_samples, total_time, progress_bar=None, return_data='avg'):
     ''' ---Inputs---
-            · protocol: (str) protocol to be run ('rprs' or 'srs').
+            · protocol: (str) protocol to be run ('srs' or 'ndsrs').
             · A:    (array) physical adjacency matrix.
             · p_gen: (float) probability of successful entanglement generation.
+            · q_swap:   (float) probability that a swap is attempted. In the 'ndsrs',
+                        this has to be a list of length len(A).
+            · p_swap:   (float) probability of successful swap.
             · p_cons:   (float) probability of link consumption.
             · cutoff:   (int) cutoff time.
-            · M:
+            · M:    (int) maximum swap length.
             · qbits_per_channel:    (int) number of qubits per node reserved
                                     for each physical channel.
             · N_samples:    (int) number of samples.
@@ -498,10 +577,10 @@ def simulation_cd(protocol, A, p_gen, q_swap, p_swap, p_cons, cutoff, M, qbits_p
         for sample in _tqdm(range(N_samples), 'Samples', leave=False):
             S = create_qubit_registers(A, qbits_per_channel)
             for t in range(0,total_time):
-                if protocol=='rprs':
-                    S = step_protocol_rprs(S, p_gen, q_swap, p_swap, p_cons, cutoff, M)
-                elif protocol=='srs':
+                if protocol=='srs':
                     S = step_protocol_srs(S, p_gen, q_swap, p_swap, p_cons, cutoff, M)
+                elif protocol=='ndsrs':
+                    S = step_protocol_ndsrs(S, p_gen, q_swap, p_swap, p_cons, cutoff, M)
                 else:
                     raise ValueError('Protocol not implemented')
                 for node in range(n):
@@ -525,10 +604,10 @@ def simulation_cd(protocol, A, p_gen, q_swap, p_swap, p_cons, cutoff, M, qbits_p
         # First sample
         S = create_qubit_registers(A, qbits_per_channel)
         for t in range(0,total_time):
-            if protocol=='rprs':
-                S = step_protocol_rprs(S, p_gen, q_swap, p_swap, p_cons, cutoff, M)
-            elif protocol=='srs':
+            if protocol=='srs':
                 S = step_protocol_srs(S, p_gen, q_swap, p_swap, p_cons, cutoff, M)
+            elif protocol=='ndsrs':
+                S = step_protocol_ndsrs(S, p_gen, q_swap, p_swap, p_cons, cutoff, M)
             else:
                 raise ValueError('Protocol not implemented')
             for node in range(n):
@@ -542,10 +621,10 @@ def simulation_cd(protocol, A, p_gen, q_swap, p_swap, p_cons, cutoff, M, qbits_p
         for sample in _tqdm(range(N_samples-1), 'Samples', leave=False):
             S = create_qubit_registers(A, qbits_per_channel)
             for t in range(0,total_time):
-                if protocol=='rprs':
-                    S = step_protocol_rprs(S, p_gen, q_swap, p_swap, p_cons, cutoff, M)
-                elif protocol=='srs':
+                if protocol=='srs':
                     S = step_protocol_srs(S, p_gen, q_swap, p_swap, p_cons, cutoff, M)
+                elif protocol=='ndsrs':
+                    S = step_protocol_ndsrs(S, p_gen, q_swap, p_swap, p_cons, cutoff, M)
                 else:
                     raise ValueError('Protocol not implemented')
                 for node in range(n):
@@ -918,7 +997,7 @@ def theory_virtual_noswaps(physical_degree, p_gen, p_cons, cutoff, qbits_per_cha
 #---------------------------------------------------------------------------
 #------------------------------- PLOTS -------------------------------------
 #---------------------------------------------------------------------------
-def plot_avgs(users, protocol, data_type, topology, n, p_gen, q_swap, p_swap, p_cons, cutoff, max_links_swapped, qbits_per_channel, N_samples, total_time, randomseed, avg_vdegs_theory=None, avg_vneighs_theory=None, physical_degrees=None, steady_state_window=None, steady_state_force_find=False, dark=False, legend='nodes', save=False, x_cm=8, y_cm=5, fontsize=8, xlimits=None, ylimits_deg=None, ylimits_neigh=None, num_y_ticks_vdeg=4, num_y_ticks_vneigh=4, **kwargs):
+def plot_avgs(users, protocol, data_type, topology, n, p_gen, q_swap, p_swap, p_cons, cutoff, max_links_swapped, qbits_per_channel, N_samples, total_time, randomseed, nd_label=None, avg_vdegs_theory=None, avg_vneighs_theory=None, physical_degrees=None, steady_state_window=None, steady_state_force_find=False, dark=False, legend='nodes', save=False, x_cm=8, y_cm=5, fontsize=8, xlimits=None, ylimits_deg=None, ylimits_neigh=None, num_y_ticks_vdeg=4, num_y_ticks_vneigh=4, **kwargs):
     '''Plot average virtual metrics over time'''
 
     #####################
@@ -926,7 +1005,7 @@ def plot_avgs(users, protocol, data_type, topology, n, p_gen, q_swap, p_swap, p_
     #####################
     sim_data = load_data_cd(protocol, data_type, topology, n, p_gen, q_swap,
                         p_swap, p_cons, cutoff, max_links_swapped, qbits_per_channel,
-                        N_samples, total_time, randomseed)
+                        N_samples, total_time, randomseed, nd_label=nd_label)
     avg_vdegs_sim = sim_data['avg_vdegrees']
     avg_vneighs_sim = sim_data['avg_vneighs']
     std_vdegs_sim = sim_data['std_vdegrees']
@@ -1147,6 +1226,11 @@ def plot_pareto_singleprotocol_2users(users, varying_array, varying_param, proto
 
     assert len(users)==2, 'Number of users should be 2'
 
+    if protocol == 'ndsrs':
+        raise ValueError('Function unavailable for node-dependent protocols')
+    elif protocol not in ['srs', 'rprs']:
+        raise ValueError('Unknown protocol')
+
     # #####################
     # ## LOAD DATA ##
     # #####################
@@ -1326,6 +1410,11 @@ def plot_avgs_vs_param(users, varying_array, varying_param, protocol, data_type,
     std_vneighs_sim = [[[] for q in varying_array] for _ in range(n)]
 
     #print('WARNING: presence of steady state not checked')
+
+    if protocol == 'ndsrs':
+        raise ValueError('Function unavailable for node-dependent protocols')
+    elif protocol not in ['srs', 'rprs']:
+        raise ValueError('Unknown protocol')
 
     for idx in tqdmn(range(len(varying_array)), 'q_swap', leave=False):
         if varying_param == 'q_swap':
@@ -1634,28 +1723,126 @@ def plot_colormap(x_array, y_array, data, x_label, y_label, cbar_label, cbar_max
     else:
         plt.show()
 
+def plot_entangled_links(S, cutoff=np.inf, layout='random', show_link_data=False, arc_radius=0.5):
+    '''S is the qubit registers.
+        ---Inputs---
+            · cutoff:   (int) used to set the transparency of each link.
+            · layout:   (str) 'chain', 'squared', 'random'.'''
+
+    # Find n (number of nodes) and r (number of qubits per neighbor per node)
+    n = len(S)
+    for i in range(n):
+        for j in range(n):
+            if not S[i][j] == 0:
+                r = len(S[i][j])
+                break
+
+    # Node distribution
+    G=nx.MultiGraph()
+    G.add_nodes_from(range(n)) # Include disconnected nodes
+
+    if layout == 'chain':
+        pos = {}
+        for i in range(n):
+            pos[i] = [i/(n-1),0]
+    elif layout == 'squared':
+        l = int(n**0.5)
+        pos = {}
+        for i in range(n):
+            if i<l:
+                x = 0
+            else:
+                x = int((i-(l-1)-1e-10)//l+1) 
+            y = i%l
+            pos[i] = [x/(l-1),y/(l-1)]
+    elif layout == 'random':
+        pos = nx.random_layout(G)
+    elif layout == 'spring':
+        pos = nx.spring_layout(G)
+    else:
+        raise ValueError('Unknown layout')
+
+    # Draw links
+    rad_extra = []
+    l = 1
+    while l < np.ceil(r/2)+1:
+        rad_extra += [l, -l]
+        l += 1
+    ax = plt.gca()
+
+    # Generate network data
+    id_set = set()
+    for i in range(n):
+        for j in range(n):
+            if not S[i][j] == 0:
+                for m, qubit in enumerate(S[i][j]):
+                    if not qubit is None:
+                        qubit1_id = (i,j,m)
+                        qubit2_id = tuple(qubit[2])
+                        if (qubit1_id not in id_set) and (qubit2_id not in id_set):
+                            id_set.add(qubit1_id)
+                            id_set.add(qubit2_id)
+                            if show_link_data:
+                                print(qubit[0], qubit1_id, qubit2_id)
+                            i2 = qubit2_id[0]
+                            G.add_edge(i,i2)
+
+                            # Plot edge
+                            if layout == 'chain':
+                                rad_offset = (np.abs(i2-i)-1)*arc_radius
+                                rad = rad_offset*np.sign(rad_extra[m]) + rad_extra[m]*arc_radius/r
+                                connect_style = 'arc3,rad=%s'%str(rad)
+                            elif layout == 'squared':
+                                connect_style = 'arc3,rad=%s'%str(0.3*m+0.1)
+                            elif layout == 'random':
+                                connect_style = 'arc3,rad=%s'%str(0.3*m)
+                            else:
+                                connect_style = 'arc3,rad=%s'%str(0.3*m)
+                            ax.annotate('', xy=pos[i], xycoords='data',
+                                        xytext=pos[i2], textcoords='data',
+                                        arrowprops=dict(arrowstyle='-', color='k',
+                                                        linewidth=2,
+                                                        alpha=1-S[i][j][m][0]/(cutoff+0.1),
+                                                        connectionstyle=connect_style))
+        
+
+    # Draw nodes
+    nx.draw_networkx_nodes(G, pos, node_color = 'k', node_size = 100, alpha = 1)
+
+    plt.axis('off')
+    plt.show()
+
 
 #---------------------------------------------------------------------------
 #----------------------------- DATA STORAGE --------------------------------
 #---------------------------------------------------------------------------
-def check_data_cd(protocol, data_type, topology, n, p_gen, q_swap, p_swap, p_cons, cutoff, max_links_swapped, qbits_per_channel, N_samples, total_time, randomseed):
+def check_data_cd(protocol, data_type, topology, n, p_gen, q_swap, p_swap, p_cons, cutoff, max_links_swapped, qbits_per_channel, N_samples, total_time, randomseed, nd_label=None):
     '''If simulation_rprs() has been run and saved for this set of
         parameters, return True. Otherwise, return False.
         ---Inputs---
-            · ...'''
-    if protocol not in ['srs', 'rprs']:
+            · nd_label: (str) label used to identify data from protocols with node-dependent
+                        parameters. Otherwise we would need to save all the parameters in
+                        the file name.'''
+    if protocol not in ['srs', 'rprs', 'ndsrs']:
         raise ValueError('Unknown protocol')
-    filename = 'data-%s/%s/%s/n%d-p_gen%.3f-q_swap%.3f-p_swap%.3f-p_cons%.3f'\
-                '-cutoff%d-max_links_swapped%d-qbits_per_channel%d-N_samples%d'\
-                '-total_time%d-randomseed%s'%(protocol, data_type, topology, n, p_gen,
-                q_swap, p_swap, p_cons, cutoff, max_links_swapped,
-                qbits_per_channel, N_samples, total_time, randomseed)
+    elif protocol=='ndsrs':
+        filename = 'data-%s/%s/%s/n%d-%s-p_gen%.3f-p_swap%.3f-p_cons%.3f'\
+                    '-cutoff%d-max_links_swapped%d-qbits_per_channel%d-N_samples%d'\
+                    '-total_time%d-randomseed%s'%(protocol, data_type, topology, n, nd_label,
+                    p_gen, p_swap, p_cons, cutoff, max_links_swapped,
+                    qbits_per_channel, N_samples, total_time, randomseed)
+    else:
+        filename = 'data-%s/%s/%s/n%d-p_gen%.3f-q_swap%.3f-p_swap%.3f-p_cons%.3f'\
+                    '-cutoff%d-max_links_swapped%d-qbits_per_channel%d-N_samples%d'\
+                    '-total_time%d-randomseed%s'%(protocol, data_type, topology, n, p_gen,
+                    q_swap, p_swap, p_cons, cutoff, max_links_swapped,
+                    qbits_per_channel, N_samples, total_time, randomseed)
     if Path(filename).exists():
         return True
     else:
         return False
 
-def save_data_cd(data, protocol, data_type, topology, n, p_gen, q_swap, p_swap, p_cons, cutoff, max_links_swapped, qbits_per_channel, N_samples, total_time, randomseed):
+def save_data_cd(data, protocol, data_type, topology, n, p_gen, q_swap, p_swap, p_cons, cutoff, max_links_swapped, qbits_per_channel, N_samples, total_time, randomseed, nd_label=None):
     '''Save data for this set of parameters.
         ---Inputs---
             · ... '''
@@ -1674,11 +1861,18 @@ def save_data_cd(data, protocol, data_type, topology, n, p_gen, q_swap, p_swap, 
         pass
 
     # Save data
-    filename = 'data-%s/%s/%s/n%d-p_gen%.3f-q_swap%.3f-p_swap%.3f-p_cons%.3f'\
-                '-cutoff%d-max_links_swapped%d-qbits_per_channel%d-N_samples%d'\
-                '-total_time%d-randomseed%s'%(protocol, data_type, topology, n, p_gen,
-                q_swap, p_swap, p_cons, cutoff, max_links_swapped,
-                qbits_per_channel, N_samples, total_time, randomseed)
+    if protocol=='ndsrs':
+        filename = 'data-%s/%s/%s/n%d-%s-p_gen%.3f-p_swap%.3f-p_cons%.3f'\
+                    '-cutoff%d-max_links_swapped%d-qbits_per_channel%d-N_samples%d'\
+                    '-total_time%d-randomseed%s'%(protocol, data_type, topology, n, nd_label,
+                    p_gen, p_swap, p_cons, cutoff, max_links_swapped,
+                    qbits_per_channel, N_samples, total_time, randomseed)
+    else:
+        filename = 'data-%s/%s/%s/n%d-p_gen%.3f-q_swap%.3f-p_swap%.3f-p_cons%.3f'\
+                    '-cutoff%d-max_links_swapped%d-qbits_per_channel%d-N_samples%d'\
+                    '-total_time%d-randomseed%s'%(protocol, data_type, topology, n, p_gen,
+                    q_swap, p_swap, p_cons, cutoff, max_links_swapped,
+                    qbits_per_channel, N_samples, total_time, randomseed)
     if data_type=='all':
         _data = {'vdegrees': data[0], 'vneighs': data[1]}
     elif data_type=='avg':
@@ -1686,20 +1880,29 @@ def save_data_cd(data, protocol, data_type, topology, n, p_gen, q_swap, p_swap, 
                     'std_vdegrees': data[2], 'std_vneighs': data[3]}
     else:
         raise ValueError('Unknown data_type')
+    if protocol=='ndsrs':
+        _data['q_swap_vec'] = q_swap
     with open(filename, 'wb') as handle:
         pickle.dump(_data, handle, protocol=pickle.HIGHEST_PROTOCOL)
 
-def load_data_cd(protocol, data_type, topology, n, p_gen, q_swap, p_swap, p_cons, cutoff, max_links_swapped, qbits_per_channel, N_samples, total_time, randomseed):
+def load_data_cd(protocol, data_type, topology, n, p_gen, q_swap, p_swap, p_cons, cutoff, max_links_swapped, qbits_per_channel, N_samples, total_time, randomseed, nd_label=None):
     '''Load data obtained via simulation_rprs().
         ---Inputs---
             · ...
         ---Outputs---
             · ... '''
-    filename = 'data-%s/%s/%s/n%d-p_gen%.3f-q_swap%.3f-p_swap%.3f-p_cons%.3f'\
-                '-cutoff%d-max_links_swapped%d-qbits_per_channel%d-N_samples%d'\
-                '-total_time%d-randomseed%s'%(protocol, data_type, topology, n, p_gen,
-                q_swap, p_swap, p_cons, cutoff, max_links_swapped,
-                qbits_per_channel, N_samples, total_time, randomseed)
+    if protocol=='ndsrs':
+        filename = 'data-%s/%s/%s/n%d-%s-p_gen%.3f-p_swap%.3f-p_cons%.3f'\
+                    '-cutoff%d-max_links_swapped%d-qbits_per_channel%d-N_samples%d'\
+                    '-total_time%d-randomseed%s'%(protocol, data_type, topology, n, nd_label,
+                    p_gen, p_swap, p_cons, cutoff, max_links_swapped,
+                    qbits_per_channel, N_samples, total_time, randomseed)
+    else:
+        filename = 'data-%s/%s/%s/n%d-p_gen%.3f-q_swap%.3f-p_swap%.3f-p_cons%.3f'\
+                    '-cutoff%d-max_links_swapped%d-qbits_per_channel%d-N_samples%d'\
+                    '-total_time%d-randomseed%s'%(protocol, data_type, topology, n, p_gen,
+                    q_swap, p_swap, p_cons, cutoff, max_links_swapped,
+                    qbits_per_channel, N_samples, total_time, randomseed)
     with open(filename, 'rb') as handle:
         data = pickle.load(handle)
     return data
