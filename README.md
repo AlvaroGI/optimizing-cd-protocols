@@ -46,6 +46,8 @@ In the Single Random Swap (SRS) protocol, in each time slot:
  5. Remove links that are too long.
  6. CONS happens between each pair of virtual neighbors.
 
+We also implemented a node-dependent SRS protocol (NDSRS), where the parameter $`q`$ is node-dependent. For further details, see `VALIDATION-node-dependent-srs.ipynb`.
+
 ---
 ## Files
 
