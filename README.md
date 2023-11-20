@@ -2,7 +2,7 @@
 
 Optimization of the parameters of a protocol for continuous delivery (CD) of entanglement in a quantum network.
 
-The code in this repository was used to generate the results shown in our paper 'Performance metrics for the continuous distribution of entanglement in multi-user quantum networks' ([arXiv:2307.01406](https://arxiv.org/abs/2307.01406)).
+The code in this repository was used to generate the results shown in our paper 'Performance metrics for the continuous distribution of entanglement in multi-user quantum networks' ([arXiv:2307.01406](https://arxiv.org/abs/2307.01406)). The data shown in the paper can be found in our [data repository](10.4121/75ccbe86-76dd-4188-8c34-f6e012b1373a.v1).
 
 ---
 ## Basic usage
