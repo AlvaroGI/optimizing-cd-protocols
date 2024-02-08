@@ -23,6 +23,9 @@ from queue import Queue
 import matplotlib.ticker as ticker
 import networkx as nx
 
+np.random.seed(42)
+random.seed(42)
+
 plt.rcParams['font.family'] = 'Arial'
 #rc('text', usetex=True)
 #plt.rcParams.update({
@@ -222,7 +225,6 @@ def create_qubit_registers(A, r):
 
 def generate_all_links(S, p):
     '''Generates one entangled link per physical channel.'''
-    np.random.seed(42)
     n = len(S)
     for i in range(n):
         for j in range(i+1,n):
@@ -300,7 +302,6 @@ def swap(S, qubit_id1, qubit_id2, ps=1):
                             and index of qubit 2 in the physical link.
             · ps:   (float) probability of successful swap.'''
         # set seed
-    np.random.seed(42)
     i1, j1, m1 = qubit_id1
     i2, j2, m2 = qubit_id2
     assert S[i1][j1], 'No qubit register [i1, j1]'
@@ -351,7 +352,6 @@ def consume_fixed_rate(S, cons_rate):
         If the virtual neighbors do not share enough entangled links,
         they consume as many as possible.'''
         # set seed
-    np.random.seed(42)
     nodepairs_consumed = set() # Pairs of nodes that already consumed links
     n = len(S)
     for node1 in range(n):
@@ -395,9 +395,6 @@ def consume_fixed_rate(S, cons_rate):
 def step_protocol_srs(S, p_gen, q_swap, p_swap, p_cons, cutoff, max_links_swapped):
     '''SRS protocol: Single Random Swap'''
     # set seed
-    np.random.seed(42)
-    random.seed(42)
-
     n = len(S)
 
     S = advance_time(S)
@@ -463,12 +460,8 @@ def step_protocol_srs(S, p_gen, q_swap, p_swap, p_cons, cutoff, max_links_swappe
 
     return S
 
-def step_protocol_ndsrs(S, p_gen, q_swap_vec, p_swap, p_cons, cutoff, max_links_swapped, seed=42):
+def step_protocol_ndsrs(S, p_gen, q_swap_vec, p_swap, p_cons, cutoff, max_links_swapped):
     '''Node-Dependent Single Random Swap (NDSRS) protocol.'''
-    
-    # set seed
-    np.random.seed(seed)
-    random.seed(seed)
 
     n = len(S)
 
@@ -547,7 +540,7 @@ def step_protocol_ndsrs(S, p_gen, q_swap_vec, p_swap, p_cons, cutoff, max_links_
 #---------------------------------------------------------------------------
 #----------------------------- SIMULATIONS ---------------------------------
 #---------------------------------------------------------------------------
-def simulation_cd(protocol, A, p_gen, q_swap, p_swap, p_cons, cutoff, M, qbits_per_channel, N_samples, total_time, progress_bar=None, return_data='avg', seed=42):
+def simulation_cd(protocol, A, p_gen, q_swap, p_swap, p_cons, cutoff, M, qbits_per_channel, N_samples, total_time, progress_bar=None, return_data='avg'):
     ''' ---Inputs---
             · protocol: (str) protocol to be run ('srs' or 'ndsrs').
             · A:    (array) physical adjacency matrix.
@@ -576,9 +569,9 @@ def simulation_cd(protocol, A, p_gen, q_swap, p_swap, p_cons, cutoff, M, qbits_p
     else:
         raise ValueError('Invalid progress_bar')
 
-    # set seed
-    np.random.seed(seed)
-    random.seed(seed)
+    # # set seed
+    # np.random.seed(seed)
+    # random.seed(seed)
 
     # Calculate physical degrees
     pdegrees = physical_degrees(A)
@@ -764,7 +757,6 @@ def total_qubits_occupied_node(S, node):
 #------------------------- AUXILIARY FUNCTIONS -----------------------------
 #---------------------------------------------------------------------------
 def random_pairs(my_list):
-    random.seed(42)
     random.shuffle(my_list)
     return [(my_list[i],my_list[i+1]) for i in np.arange(0,len(my_list)-1,2)] 
 
