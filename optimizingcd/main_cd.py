@@ -533,7 +533,7 @@ def step_protocol_ndsrs(S, p_gen, q_swap_vec, p_swap, p_cons, cutoff, max_links_
 #---------------------------------------------------------------------------
 #----------------------------- SIMULATIONS ---------------------------------
 #---------------------------------------------------------------------------
-def simulation_cd(protocol, A, p_gen, q_swap, p_swap, p_cons, cutoff, M, qbits_per_channel, N_samples, total_time, progress_bar=None, return_data='avg'):
+def simulation_cd(protocol, A, p_gen, q_swap, p_swap, p_cons, cutoff, M, qbits_per_channel, N_samples, total_time, progress_bar=None, return_data='avg', seed=42):
     ''' ---Inputs---
             · protocol: (str) protocol to be run ('srs' or 'ndsrs').
             · A:    (array) physical adjacency matrix.
@@ -561,6 +561,10 @@ def simulation_cd(protocol, A, p_gen, q_swap, p_swap, p_cons, cutoff, M, qbits_p
         _tqdm = tqdm
     else:
         raise ValueError('Invalid progress_bar')
+
+    # set seed
+    np.random.seed(seed)
+    random.seed(seed)
 
     # Calculate physical degrees
     pdegrees = physical_degrees(A)
