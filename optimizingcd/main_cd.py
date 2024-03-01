@@ -159,7 +159,7 @@ def adjacency_tree(d,k):
             · d:    (int) number of child nodes per node.
             · k:    (int) number of levels.'''
 
-    return nx.adjacency_matrix(nx.balanced_tree(d,k))
+    return nx.adjacency_matrix(nx.balanced_tree(d,k)).todense()
 
 def physical_degrees(A):
     '''Calculates the physical degree of each node.
