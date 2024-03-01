@@ -159,35 +159,7 @@ def adjacency_tree(d,k):
             · d:    (int) number of child nodes per node.
             · k:    (int) number of levels.'''
 
-    # Three level approach
-    n = int((d**k - 1) / (d - 1))
-    A = np.zeros((n,n))
-    lvl0_node = 0
-    current_node = 1
-    for node_lvl1 in range(d):
-        A[lvl0_node,current_node] = 1
-        A[current_node,lvl0_node] = 1
-        lvl1_node = current_node
-        current_node += 1
-        for node_lvl2 in range(d):
-            A[lvl1_node,current_node] = 1
-            A[current_node,lvl1_node] = 1
-            current_node += 1
-
-    # Recurrent approach
-    def new_level_loop(A, current_node, prevlvl_node, current_lvl):
-        for node_currentlvl in range(d):
-            A[prevlvl_node,current_node] = 1
-            A[current_node,prevlvl_node] = 1
-            current_node += 1
-            if current_lvl < k-1:
-                A, current_node = new_level_loop(A, current_node, current_node-1, current_lvl+1)
-        return A, current_node
-
-    n = int((d**k - 1) / (d - 1))
-    A = np.zeros((n,n))
-    A, _ = new_level_loop(A, 1, 0, 1)
-    return A
+    return nx.adjacency_matrix(nx.balanced_tree(d,k))
 
 def physical_degrees(A):
     '''Calculates the physical degree of each node.
